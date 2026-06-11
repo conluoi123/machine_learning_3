@@ -1,36 +1,67 @@
 import itertools, json
+import os
+import pandas as pd
 from tqdm import tqdm
 
-# Lấy hàm Gemini và data từ main.py
-from main import call_api, prompts 
+from config import DATA_PATH, RESULT_DIRS
+from main import call_api, build_attack_prompt
 from smooth_llm import smoothllm_defend
+from judge import is_jailbroken
 
-# [CHẠY 10 CÂU]
-ABLATION_PROMPTS = prompts[:10]
+df = pd.read_csv(DATA_PATH)
 
-N_VALUES = [1, 3, 5]            
-Q_VALUES = [5, 10, 20]          
-METHODS  = ["insert", "swap"]
+ABLATION_PROMPTS = [
+    build_attack_prompt(row["goal"], row["target"])
+    for _, row in df.head(10).iterrows()
+]
 
-ablation_data = []
+ABLATION_PROMPTS = ABLATION_PROMPTS[:5]
 
-for n, q, method in tqdm(
-    list(itertools.product(N_VALUES, Q_VALUES, METHODS)),
-    desc="Ablation Study"
-):
-    jailbroken_count = 0
-    for prompt in ABLATION_PROMPTS:
-        # Gọi Gemini
-        result = smoothllm_defend(prompt, call_api, n=n, q=q, method=method)
-        
-        if not result["blocked"]:
-            jailbroken_count += 1
+N_VALUES = [1, 3, 5]
+Q_VALUES = [10]
+METHODS = ["insert", "swap"]
 
-    asr = jailbroken_count / len(ABLATION_PROMPTS)
-    ablation_data.append({"N": n, "q": q, "method": method, "asr": asr})
-    print(f"  [Kết quả]: N={n}, q={q}%, method={method} -> ASR={asr:.1%}")
+def main():
+    os.makedirs(RESULT_DIRS, exist_ok=True)
+    ablation_data = []
+    jailbreak_rates = []
 
-with open("data/results/ablation_results.json", "w", encoding="utf-8") as f:
-    json.dump(ablation_data, f, indent=2)
+    for n, q, method in tqdm(
+        list(itertools.product(N_VALUES, Q_VALUES, METHODS)),
+        desc="Ablation Study"
+    ):
+        jailbroken_count = 0
 
-print("\nĐã chạy xong Ablation! Xem kết quả tại: data/results/ablation_results.json")
+        for prompt in ABLATION_PROMPTS:
+            result = smoothllm_defend(
+                prompt=prompt,
+                call_api_fn=call_api,
+                n=n,
+                q=q,
+                method=method,
+            )
+            jailbreak_rates.append(result["jailbreak_rate"])
+            avg_jailbreak_rate = sum(jailbreak_rates) / len(jailbreak_rates)
+
+            if is_jailbroken(result["response"]):
+                jailbroken_count += 1
+
+        asr = jailbroken_count / len(ABLATION_PROMPTS)
+
+        ablation_data.append({
+            "N": n,
+            "q": q,
+            "method": method,
+            "asr": asr,
+            "avg_jailbreak_rate": avg_jailbreak_rate,
+        })
+
+        print(f"N={n}, q={q}%, method={method} -> ASR={asr:.1%}")
+
+    with open(f"{RESULT_DIRS}/ablation_results.json", "w", encoding="utf-8") as f:
+        json.dump(ablation_data, f, ensure_ascii=False, indent=2)
+
+    print(f"Saved ablation results to {RESULT_DIRS}/ablation_results.json")
+
+if __name__ == "__main__":
+    main()

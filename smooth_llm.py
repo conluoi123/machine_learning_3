@@ -96,6 +96,7 @@ def smoothllm_defend(
     perturbed_prompts = [perturb(prompt, method, q) for _ in range(n)]
     responses = [call_api_fn(p) for p in perturbed_prompts]
     result = majority_vote(responses, gamma)
+    result["perturbed_prompts"] = perturbed_prompts
 
     if not result["blocked"]: 
         # nếu ko bị blocked thì filter câu trả lời và trả về câu đầu tiên 
