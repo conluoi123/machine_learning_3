@@ -84,7 +84,7 @@ def majority_vote(responses: list[str], gamma:float = 0.5)-> dict:
 def smoothllm_defend( 
     prompt: str, 
     call_api_fn, 
-    n: int = 6, 
+    n: int = 5, 
     q: float = 10.0, 
     method: str = "swap", 
     gamma: float = 0.5, 
