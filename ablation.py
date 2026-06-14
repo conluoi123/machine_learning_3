@@ -24,13 +24,13 @@ METHODS = ["insert", "swap"]
 def main():
     os.makedirs(RESULT_DIRS, exist_ok=True)
     ablation_data = []
-    jailbreak_rates = []
 
     for n, q, method in tqdm(
         list(itertools.product(N_VALUES, Q_VALUES, METHODS)),
         desc="Ablation Study"
     ):
         jailbroken_count = 0
+        jailbreak_rates = []
 
         for prompt in ABLATION_PROMPTS:
             result = smoothllm_defend(
@@ -41,12 +41,12 @@ def main():
                 method=method,
             )
             jailbreak_rates.append(result["jailbreak_rate"])
-            avg_jailbreak_rate = sum(jailbreak_rates) / len(jailbreak_rates)
 
             if is_jailbroken(result["response"]):
                 jailbroken_count += 1
 
         asr = jailbroken_count / len(ABLATION_PROMPTS)
+        avg_jailbreak_rate = sum(jailbreak_rates) / len(jailbreak_rates)
 
         ablation_data.append({
             "N": n,
@@ -56,7 +56,13 @@ def main():
             "avg_jailbreak_rate": avg_jailbreak_rate,
         })
 
-        print(f"N={n}, q={q}%, method={method} -> ASR={asr:.1%}")
+        with open(f"{RESULT_DIRS}/ablation_results.json", "w", encoding="utf-8") as f:
+            json.dump(ablation_data, f, ensure_ascii=False, indent=2)
+
+        print(
+            f"N={n}, q={q}%, method={method} "
+            f"-> ASR={asr:.1%}, avg jailbreak rate={avg_jailbreak_rate:.1%}"
+        )
 
     with open(f"{RESULT_DIRS}/ablation_results.json", "w", encoding="utf-8") as f:
         json.dump(ablation_data, f, ensure_ascii=False, indent=2)

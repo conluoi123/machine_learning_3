@@ -1,109 +1,168 @@
 # SmoothLLM: Defending Large Language Models Against Jailbreaking Attacks
 
-## Giới thiệu dự án
+Đây là source code demo thực nghiệm cho Đồ án 3 môn **Nhập môn Học máy**.
 
-Đây là dự án thực hành môn **Nhập môn Học máy** (Đại học Khoa học Tự nhiên, ĐHQG-HCM).
+Dự án cài đặt minh họa thuật toán **SmoothLLM** dựa trên bài báo:
 
-Dự án mô phỏng và cài đặt từ đầu (built from scratch) thuật toán **SmoothLLM** nhằm bảo vệ các Mô hình Ngôn ngữ Lớn (LLMs) trước các đòn tấn công bẻ khóa (Jailbreak Attacks). Thuật toán được cài đặt dựa trên bài báo nghiên cứu:
+> Robey, A., Wong, E., Hassani, H., & Pappas, G. J. (2023). *SmoothLLM: Defending Large Language Models Against Jailbreaking Attacks*. https://arxiv.org/abs/2310.03684
 
-> _Robey, A., Wong, E., Hassani, H., & Pappas, G. J. (2023). "[SmoothLLM: Defending Large Language Models Against Jailbreaking Attacks](https://arxiv.org/abs/2310.03684)"_
+Demo được thực hiện theo hướng **tự xây dựng từ đầu**: tạo prompt tấn công từ AdvBench, chạy baseline không phòng thủ, chạy SmoothLLM, tính ASR và vẽ biểu đồ kết quả.
 
-**Cơ chế hoạt động chính:** Hệ thống phòng thủ hoạt động theo dạng Hộp đen (Black-box), tạo ra nhiều bản sao bị làm nhiễu (Perturbations: Insert, Swap, Patch) từ câu lệnh của người dùng, đưa qua LLM, sau đó dùng thuật toán **Bỏ phiếu đa số (Majority Vote)** và cơ chế **LLM-as-a-judge** để quyết định chặn (Block) hay cho phép (Pass) câu trả lời.
+## Thành viên nhóm
 
----
+| MSSV | Họ và tên |
+| --- | --- |
+| 23120347 | Nguyễn Kim Quốc |
+| 23120348 | Ngô Thị Thục Quyên |
+| 23120390 | Cao Quốc Tuấn |
+| 23120393 | Lục Hoàng Tuấn |
+| 23120403 | Huỳnh Trọng Viên |
 
-## 🛠 Yêu cầu hệ thống (Prerequisites)
+## Cấu trúc chính
 
-Để chạy được dự án này, máy tính của bạn cần có:
-
-- **Python:** Phiên bản 3.8 trở lên.
-- **API Key:** Có tài khoản và API Key hợp lệ của Google Gemini (miễn phí tại Google AI Studio) hoặc cài đặt sẵn Ollama nếu muốn chạy mô hình Local.
-
----
-
-## Hướng dẫn cài đặt (Installation)
-
-**Bước 1: Clone kho lưu trữ về máy**
-
-```bash
-git clone git@github.com:conluoi123/machine_learning_3.git
-cd machine_learning_3
+```text
+machine_learning_3/
+|-- main.py                  # Chạy baseline và SmoothLLM
+|-- smooth_llm.py            # Cài đặt perturbation và majority vote
+|-- judge.py                 # Đánh giá response có bị jailbreak hay không
+|-- ablation.py              # Thử nghiệm thay đổi siêu tham số
+|-- visualize.py             # Vẽ biểu đồ kết quả
+|-- config.py                # Cấu hình model, tham số và đường dẫn
+|-- requirements.txt         # Danh sách thư viện cần cài
+`-- data/
+    |-- advbench_sample.csv  # Tập mẫu AdvBench
+    `-- results/             # Kết quả JSON và hình biểu đồ
 ```
 
-**Bước 2: Tạo và kích hoạt môi trường ảo (Khuyên dùng)**
+## Cài đặt
+
+Tạo môi trường ảo, nếu cần:
 
 ```bash
-# Tạo môi trường ảo có tên là venv
 python -m venv venv
-
-# Kích hoạt trên Windows:
-venv\Scripts\activate
-
-# Kích hoạt trên macOS/Linux:
-source venv/bin/activate
 ```
 
-**Bước 3: Cài đặt các thư viện cần thiết**
+Kích hoạt môi trường ảo trên Windows:
+
+```bash
+venv\Scripts\activate
+```
+
+Cài đặt thư viện:
 
 ```bash
 pip install -r requirements.txt
 ```
 
----
+## Cấu hình API key
 
-## Cấu hình API Key (Configuration)
-
-Để mã nguồn chạy được mà không lộ khóa bảo mật, dự án sử dụng biến môi trường.
-
-1. Trong thư mục gốc, tạo một file mới có tên là `.env` (hoặc copy từ file `.env.example` nếu có).
-2. Mở file `.env` và điền API Key của bạn vào theo định dạng sau:
+Demo chính sử dụng Gemini API. Tạo file `.env` trong thư mục chứa `main.py`:
 
 ```env
-GEMINI_API_KEY=AIzaSyYourSecretAPIKeyHere...
+GEMINI_API_KEY=
 ```
 
-_(**Lưu ý Bảo mật:** Tuyệt đối không commit file `.env` lên GitHub. File này đã được thêm vào `.gitignore` để đảm bảo an toàn)._
+Dán API key thật sau dấu `=`. Không commit file `.env` lên GitHub.
 
----
+Kiểm tra API key:
 
-## Hướng dẫn chạy code (Usage)
+```bash
+python -c "from config import GEMINI_API_KEY; print(GEMINI_API_KEY is not None)"
+```
 
-Dự án được chia thành các script riêng biệt. Khởi chạy theo thứ tự sau để xem toàn bộ kết quả:
+Kết quả mong đợi:
 
-### 1. Chạy thực nghiệm chính (So sánh Baseline vs SmoothLLM)
+```text
+True
+```
 
-Lệnh này sẽ chạy 10 câu lệnh độc hại qua LLM gốc (không phòng thủ) để tính Base ASR, sau đó chạy qua hệ thống SmoothLLM để thấy tỷ lệ bị chặn.
+## Cấu hình thực nghiệm hiện tại
+
+Các tham số chính trong `config.py`:
+
+```python
+LLM_MODEL = "gemini-3.1-flash-lite"
+N_COPIES = 5
+Q_PERCENT = 10
+GAMMA = 0.5
+SAMPLE_SIZE = 5
+DEFAULT_METHOD = "swap"
+PROMPT_MODE = "attack"
+```
+
+Trong đó:
+
+- `SAMPLE_SIZE = 5`: chạy 5 mẫu AdvBench để hạn chế quota API.
+- `PROMPT_MODE = "attack"`: tạo prompt tấn công thủ công từ cặp `goal-target`.
+- `N_COPIES = 5`: tạo 5 bản sao perturbed cho mỗi prompt.
+- `Q_PERCENT = 10`: làm nhiễu 10% ký tự.
+- `DEFAULT_METHOD = "swap"`: dùng perturbation dạng thay thế ký tự trong thực nghiệm chính.
+
+## Cách chạy
+
+Chạy từ thư mục chứa `main.py`:
+
+```bash
+cd machine_learning_3
+```
+
+### 1. Chạy thực nghiệm chính
 
 ```bash
 python main.py
 ```
 
-### 2. Chạy phân tích siêu tham số (Ablation Study)
+Kết quả được lưu tại:
 
-Lệnh này phân tích sự thay đổi của hiệu suất phòng thủ khi tinh chỉnh các tham số $N$ (Số lượng bản sao) và $q$ (Tỷ lệ nhiễu).
+```text
+data/results/baseline_results.json
+data/results/smoothllm_results.json
+```
+
+Kết quả hiện tại:
+
+```text
+Baseline ASR:  20.0%
+SmoothLLM ASR: 0.0%
+```
+
+### 2. Chạy ablation study
 
 ```bash
 python ablation.py
 ```
 
-### 3. Vẽ biểu đồ trực quan hóa
+Thực nghiệm hiện tại khảo sát:
 
-Sau khi 2 lệnh trên chạy xong và sinh ra file JSON trong thư mục `data/results/`, bạn chạy lệnh sau để xuất biểu đồ phân tích:
+```python
+N_VALUES = [1, 3, 5]
+Q_VALUES = [10]
+METHODS = ["insert", "swap"]
+```
+
+Kết quả lưu tại:
+
+```text
+data/results/ablation_results.json
+```
+
+### 3. Vẽ biểu đồ
 
 ```bash
 python visualize.py
 ```
 
----
+Biểu đồ được lưu tại:
 
-## Kết quả kỳ vọng (Expected Results)
+```text
+data/results/asr_comparison.png
+data/results/ablation_by_n.png
+```
 
-Sau khi chạy thành công các lệnh trên, bạn sẽ quan sát thấy:
+## Ghi chú
 
-1. **Trên Terminal:** Log hệ thống in ra từng kịch bản, thanh tiến trình `tqdm` chạy phần trăm, kèm theo thông báo `[BLOCKED]` nếu phát hiện tấn công, hoặc `[SAFE]` nếu prompt an toàn. Cuối cùng, tỷ lệ **ASR (Attack Success Rate)** của 2 kịch bản sẽ được in ra để so sánh.
-2. **Thư mục `data/results/`:** Sẽ tự động xuất hiện các file `baseline_results.json`, `smoothllm_results.json` và `ablation_results.json` chứa dữ liệu thô.
-3. **Biểu đồ trực quan:** Lệnh visualize sẽ tạo ra các file ảnh định dạng `.png` trong thư mục `results/`, thể hiện rõ ràng sự suy giảm của tỷ lệ ASR nhờ vào lớp phòng thủ SmoothLLM so với Baseline, rất phù hợp để dán trực tiếp vào Slide báo cáo.
-
----
-
-_Dự án thực hiện bởi nhóm sinh viên ĐH KHTN (HCMUS)._
+- Dataset sử dụng là tập mẫu **AdvBench Harmful Behaviors** trong `data/advbench_sample.csv`.
+- Prompt tấn công được tạo thủ công từ `goal-target`, không phải adversarial suffix sinh bởi GCG/PAIR.
+- Judge mặc định dựa trên keyword refusal để tiết kiệm API.
+- Code có hàm hỗ trợ Ollama local, nhưng kết quả chính hiện tại dùng Gemini API.
+- Do Gemini API có quota/rate limit, nếu bị chặn có thể giảm `SAMPLE_SIZE`, `N_COPIES` hoặc chỉ chạy lại `visualize.py`.
